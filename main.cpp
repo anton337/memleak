@@ -18,7 +18,6 @@ void super_special_dealloc(float**arr,int k)
 int main()
 {
   float** arr = new float*[10];
-  std::cout << "hello world" << std::endl;
   float * dat = new float[5];
   float * k = new float[10];
   double * T = new double(50.5f);
