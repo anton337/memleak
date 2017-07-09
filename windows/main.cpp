@@ -27,6 +27,14 @@ int main()
   delete [] k;
   for(int i=0;i<10;i++)super_special_dealloc(arr,i);
   delete [] arr;
+  for (int iter = 0; iter < 10000; iter++)
+  {
+	  float * d = new float[1000];
+	  //if (rand() % 1000 < 10)
+	  {
+		  delete[] d;
+	  }
+  }
   print_summary();
   char ch;
   std::cin >> ch;

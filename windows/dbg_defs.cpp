@@ -6,6 +6,8 @@
 #include <signal.h>
 #include <stdlib.h>
 
+#include <boost/thread/mutex.hpp>
+
 #include "location.h"
 
 struct location_compare {
@@ -52,18 +54,22 @@ struct linked_node
 template<typename T, typename compare>
 struct linked_list
 {
+	boost::mutex mtx_;
 	size_t size;
 	linked_node<T>* root;
 	linked_node<T>* tail;
 	compare comp;
 	linked_list()
 	{
+		mtx_.lock();
 		size = 0;
 		root = NULL;
 		tail = NULL;
+		mtx_.unlock();
 	}
 	void insert_last(T * a)
 	{
+		mtx_.lock();
 		linked_node<T> * node = (linked_node<T>*)malloc(sizeof(linked_node<T>));
 		node->elem = a;
 		node->next = NULL;
@@ -80,9 +86,11 @@ struct linked_list
 			tail = node;
 		}
 		size++;
+		mtx_.unlock();
 	}
 	bool find(T& a, bool stop = true)
 	{
+		mtx_.lock();
 		linked_node<T>* tmp = root;
 		int iter = 0;
 		while (tmp != NULL)
@@ -91,29 +99,37 @@ struct linked_list
 			{
 				// found it
 				if (stop)
+				{
+					mtx_.unlock();
 					return true;
+				}
 			}
 			tmp = tmp->next;
 			iter++;
 		}
+		mtx_.unlock();
 		return false;
 	}
 	T * get(T& a)
 	{
+		mtx_.lock();
 		linked_node<T>* tmp = root;
 		while (tmp != NULL)
 		{
 			if (comp(a, *tmp->elem) == false && comp(*tmp->elem, a) == false)
 			{
 				// found it
+				mtx_.unlock();
 				return tmp->elem;
 			}
 			tmp = tmp->next;
 		}
+		mtx_.unlock();
 		return NULL;
 	}
 	void clear()
 	{
+		mtx_.lock();
 		linked_node<T>* tmp = root;
 		linked_node<T>* nxt = NULL;
 		while (tmp != NULL)
@@ -122,6 +138,7 @@ struct linked_list
 			remove(tmp);
 			tmp = nxt;
 		}
+		mtx_.unlock();
 	}
 	void remove(linked_node<T>* node)
 	{
@@ -150,6 +167,7 @@ struct linked_list
 	}
 	void find_and_remove(T& a)
 	{
+		mtx_.lock();
 		linked_node<T>* tmp = root;
 		while (tmp != NULL)
 		{
@@ -161,6 +179,7 @@ struct linked_list
 			}
 			tmp = tmp->next;
 		}
+		mtx_.unlock();
 	}
 	size_t get_size()
 	{
@@ -232,7 +251,7 @@ location_definition * pop(void * loc)
 	free(L);
 	return NULL;
 }
-
+//#define __FULL_DEBUG__
 void print_summary()
 {
 	std::cout << "map size:" << M.get_size() << std::endl;
@@ -240,9 +259,16 @@ void print_summary()
 	linked_node * tmp = M.root;
 	while (tmp != NULL)
 	{
-		std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
-		tmp->elem->first.print("");
-		std::cout << tmp->elem->second.total_size << "\t" << tmp->elem->second.num_invoked << "\t" << tmp->elem->second.total_allocated << std::endl;
+#ifndef __FULL_DEBUG__
+		if (tmp->elem->second.total_size>0)
+		{
+#endif
+			std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+			tmp->elem->first.print("");
+			std::cout << tmp->elem->second.total_size << "\t" << tmp->elem->second.num_invoked << "\t" << tmp->elem->second.total_allocated << std::endl;
+#ifndef __FULL_DEBUG__
+		}
+#endif
 		tmp = tmp->next;
 	}
 	M.clear();
@@ -292,7 +318,8 @@ int printStackTrace(location_definition * loc)
 			sprintf_s(loc->arrays[i],MAX_LEN,"\tat %s in %s: line: %lu: address: 0x%0X\n", symbol->Name, line->FileName, line->LineNumber, symbol->Address);
 		}
 	}
-	
+	free(symbol);
+	free(line);
 	return 0;
 }
 
